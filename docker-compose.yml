@@ -1,0 +1,51 @@
+# Klepto Cartographer stack (Docker standalone / Portainer).
+#
+# The image is built by GitHub Actions and published to GHCR on every push to
+# main. Every setting (Tile login, TRACKER_n, keys, tunnel token) comes from
+# environment variables in stack.env.
+#
+# Portainer: Stacks -> Add stack -> Web editor -> paste this file ->
+#            Environment variables -> "Load variables from .env file"
+#            (fill in stack.env.example) -> Deploy.
+#
+# Plain Docker: cp stack.env.example stack.env, edit it, then
+#   docker compose --env-file stack.env up -d
+
+services:
+  klepto:
+    image: ghcr.io/shubniguroth/kleptocartography:latest
+    container_name: klepto
+    restart: unless-stopped
+    init: true
+    env_file:
+      - stack.env
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - klepto-data:/data
+    ports:
+      # Direct LAN access (http://<docker-host>:8787). Not needed by the tunnel.
+      - "${KLEPTO_HOST_PORT:-8787}:8787"
+    networks: [klepto]
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }
+
+  # Optional Cloudflare tunnel. Its public hostname points at http://klepto:8787.
+  # Delete this service if you publish the app another way (reverse proxy, VPN...).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: klepto-tunnel
+    restart: unless-stopped
+    # http2 instead of QUIC: more robust behind NATs that expire idle UDP flows.
+    command: tunnel --no-autoupdate --protocol http2 run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on: [klepto]
+    networks: [klepto]
+
+volumes:
+  klepto-data:
+
+networks:
+  klepto:

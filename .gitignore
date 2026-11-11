@@ -1,0 +1,9 @@
+.env
+*.env
+!stack.env.example
+stack.env
+data/
+config/config.toml
+__pycache__/
+*.pyc
+.DS_Store

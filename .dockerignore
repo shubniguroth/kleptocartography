@@ -1,0 +1,12 @@
+.git
+.github
+.env
+*.env
+stack.env
+stack.env.example
+data/
+config/
+**/__pycache__
+*.pyc
+README.md
+docker-compose.yml
