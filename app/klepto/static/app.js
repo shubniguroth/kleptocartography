@@ -153,7 +153,8 @@
       const timer = setTimeout(() => reject(new Error("timed out")), 12000);
       // Google calls this global on key/billing/referrer failures.
       window.gm_authFailure = () => googleFailed(
-        "Google rejected the Maps API key (billing disabled, referrer not allowed, or API not enabled).");
+        "Google rejected the Maps API key (billing disabled, referrer not allowed, or API not enabled). " +
+        "This page is " + location.origin + "; the browser console shows Google's exact error code.");
       window.__kleptoGmReady = async () => {
         clearTimeout(timer);
         try {
@@ -165,6 +166,7 @@
       s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key) +
         "&v=weekly&loading=async&callback=__kleptoGmReady";
       s.async = true;
+      s.referrerPolicy = "strict-origin-when-cross-origin";
       s.onerror = () => { clearTimeout(timer); reject(new Error("script blocked or offline")); };
       document.head.appendChild(s);
     });

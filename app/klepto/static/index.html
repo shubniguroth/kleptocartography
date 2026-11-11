@@ -6,6 +6,11 @@
   <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex, nofollow">
+  <!-- Google checks restricted API keys against the Referer header. A proxy in
+       front (Cloudflare "security headers", Caddy snippets) may send
+       Referrer-Policy: same-origin/no-referrer, which strips it and makes Google
+       reject the key. A meta referrer policy overrides the header policy. -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Klepto Cartographer</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23111317'/%3E%3Ccircle cx='32' cy='32' r='13' fill='%23ffd166'/%3E%3Ccircle cx='32' cy='32' r='21' fill='none' stroke='%23ffd166' stroke-width='3' stroke-dasharray='4 5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
