@@ -55,8 +55,9 @@ class Poller:
             "poll_status",
             {"last_attempt": None, "last_ok": None, "last_error": None,
              "last_error_at": None, "consecutive_failures": 0, "next_poll": None,
-             "unmatched_tiles": [], "missing_trackers": []},
+             "other_tiles": 0, "missing_trackers": []},
         )
+        self.status.pop("unmatched_tiles", None)
         # Index trackers by lower-cased Tile name and by UUID.
         self._by_key: dict[str, Tracker] = {}
         for h in settings.trackers:
@@ -130,21 +131,20 @@ class Poller:
 
     async def _process(self, tiles: list[dict[str, Any]], now: int) -> None:
         seen_trackers: set[str] = set()
-        unmatched: list[dict[str, str]] = []
+        other_tiles = 0
 
         for t in tiles:
+            h = self.match(t)
+            if h is None and not self.s.discovery_mode:
+                # Privacy: Tiles that are not configured trackers are never
+                # stored, logged by name, or exposed; only counted.
+                other_tiles += 1
+                continue
             self.store.upsert_tile(
                 {"uuid": t["uuid"], "name": t["name"], "kind": t.get("kind"),
                  "archetype": t.get("archetype"), "firmware": t.get("firmware"),
                  "hardware": t.get("hardware"), "lost": t.get("lost"), "dead": t.get("dead")}
             )
-            h = self.match(t)
-            if h is None and not self.s.discovery_mode:
-                unmatched.append({"name": t["name"], "uuid": t["uuid"]})
-                if t["uuid"] not in self._unmatched_logged:
-                    log.info("Ignoring non-tracker Tile %r (%s)", t["name"], t["uuid"])
-                    self._unmatched_logged.add(t["uuid"])
-                continue
             if h is not None:
                 seen_trackers.add(h.match.lower())
             # Human-readable name for logs and alert messages.
@@ -177,7 +177,11 @@ class Poller:
         missing = [h.match for h in self.s.trackers if h.match.lower() not in seen_trackers]
         if missing:
             log.warning("Configured trackers not found on the Tile account: %s", ", ".join(missing))
-        self.status["unmatched_tiles"] = unmatched
+        if other_tiles and not self._unmatched_logged:
+            log.info("Ignoring %d other Tile(s) on the account (not configured as trackers)", other_tiles)
+            self._unmatched_logged.add("logged")
+        self.status["other_tiles"] = other_tiles
+        self.status.pop("unmatched_tiles", None)
         self.status["missing_trackers"] = missing
 
     async def _ping_healthchecks(self, ok: bool, body: str = "") -> None:

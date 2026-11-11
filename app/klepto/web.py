@@ -193,7 +193,7 @@ class WebApp:
                 },
                 "items": self._items(now),
                 "events": events,
-                "unmatched_tiles": st.get("unmatched_tiles", []),
+                "other_tiles": st.get("other_tiles", 0),
                 "missing_trackers": st.get("missing_trackers", []),
             }
         )
@@ -214,8 +214,10 @@ class WebApp:
         )
 
     async def tiles(self, request: web.Request) -> web.Response:
-        """Every Tile ever seen on the account, configured or not: the quick way
-        to read off names and UUIDs for TRACKER_n without a console."""
+        """Names and UUIDs of the Tiles Klepto stores. In discovery mode that is
+        every Tile on the account; once TRACKER_n is set it is only the
+        configured trackers (others are never stored). To list the whole
+        account later, run `python -m klepto.tiles` in the container."""
         now = int(time.time())
         configured = {h.match.lower(): h.label for h in self.s.trackers}
         out = []

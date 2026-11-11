@@ -160,6 +160,30 @@ class Store:
                 )
             )
 
+    def purge_except(self, keep_uuids: set[str]) -> dict[str, int]:
+        """Privacy: delete everything about Tiles that are not configured
+        trackers (left over from discovery mode or from a tracker that was
+        removed), including cached addresses no remaining fix uses, then
+        VACUUM so the data is really gone from the file."""
+        keep = {u.lower() for u in keep_uuids}
+        with self._lock:
+            known = {r["uuid"] for r in self._db.execute("SELECT uuid FROM tiles")}
+            known |= {r["uuid"] for r in self._db.execute("SELECT DISTINCT uuid FROM observations")}
+            drop = [u for u in known if u.lower() not in keep]
+            counts = {"tiles": 0, "observations": 0, "addresses": 0}
+            for u in drop:
+                counts["observations"] += self._db.execute("DELETE FROM observations WHERE uuid = ?", (u,)).rowcount
+                counts["tiles"] += self._db.execute("DELETE FROM tiles WHERE uuid = ?", (u,)).rowcount
+                self._db.execute("DELETE FROM alert_state WHERE uuid = ?", (u,))
+                self._db.execute("DELETE FROM events WHERE uuid = ?", (u,))
+            used = {f"{r['lat']:.4f},{r['lon']:.4f}" for r in self._db.execute("SELECT lat, lon FROM observations")}
+            for r in list(self._db.execute("SELECT key FROM geocache")):
+                if r["key"] not in used:
+                    counts["addresses"] += self._db.execute("DELETE FROM geocache WHERE key = ?", (r["key"],)).rowcount
+            if any(counts.values()):
+                self._db.execute("VACUUM")
+            return counts
+
     def prune(self, older_than_ts: int) -> int:
         with self._lock:
             cur = self._db.execute("DELETE FROM observations WHERE ts < ?", (older_than_ts,))

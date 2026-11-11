@@ -86,6 +86,16 @@ async def main() -> None:
             s.data_dir, err, os.getuid(),
         )
         sys.exit(2)
+    if not s.discovery_mode:
+        # Privacy: forget any Tile that is not a configured tracker (e.g. the
+        # whole account, seen during a discovery-mode run).
+        keys = {t.match.lower() for t in s.trackers}
+        keep = {r["uuid"] for r in store.tiles()
+                if r["uuid"].lower() in keys or r["tile_name"].strip().lower() in keys}
+        purged = store.purge_except(keep)
+        if any(purged.values()):
+            log.info("Privacy purge of non-tracker data: %s", purged)
+
     session = ClientSession(timeout=ClientTimeout(total=30), connector=TCPConnector(limit=10))
 
     if s.demo:

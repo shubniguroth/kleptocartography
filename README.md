@@ -21,6 +21,7 @@ Browser ◄── (optional) Cloudflare Access + tunnel ◄── klepto :8787  
 - **Alerts (optional):** one message when a tracker leaves all home zones and one when it returns, plus one when it goes stale and one when it's heard again. Delivered through [Apprise](https://github.com/caronc/apprise/wiki) (ntfy, email, Slack, Discord, Pushover, Teams…).
 - **Basemap that degrades gracefully:** Google Maps if you set a key, with an automatic switch to OpenStreetMap if Google rejects the key.
 - **Robust polling:** fixed interval, exponential backoff with jitter on errors, automatic re-login, a `/healthz` endpoint and an optional Healthchecks ping.
+- **Private by default:** once `TRACKER_n` is set, other Tiles on the account are never stored, named or shown, and leftovers from discovery mode are purged at startup. That makes it safe to use a personal Tile account.
 - **Mobile-friendly UI** with a light/dark theme.
 
 ## Quick start (demo data, no Tile account)
@@ -64,7 +65,7 @@ docker compose --env-file stack.env up -d
 
 The **name** is what each Tile is called in the Tile app (or the Life360 app). The **UUID** is Tile's internal ID; the apps don't show it, but Klepto can:
 
-- **Discovery mode:** start with only `TILE_EMAIL` / `TILE_PASSWORD` set. The page shows every Tile on the account, and each card shows its UUID. `/api/tiles` lists the same data as JSON.
+- **Discovery mode:** start with only `TILE_EMAIL` / `TILE_PASSWORD` set. The page shows every Tile on the account, and each card shows its UUID. `/api/tiles` lists the same data as JSON. Because this shows *everything* on the account, do it before you publish the page, then set `TRACKER_n`: the next start purges the rest.
 - **Command line:** Portainer → Containers → `klepto` → Console, then run:
 
 ```bash

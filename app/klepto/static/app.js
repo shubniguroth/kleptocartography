@@ -277,8 +277,8 @@
     if (CFG.discovery) banners.disc = { cls: "warn", html: "<b>Discovery mode.</b> Showing every Tile on the account. Set <code>TRACKER_1</code>, <code>TRACKER_2</code>… to the Tiles you want on the map (names and UUIDs at <a href=\"/api/tiles\" target=\"_blank\">/api/tiles</a>)." };
     if (data.missing_trackers?.length) {
       const names = data.missing_trackers.map((m) => `<code>${esc(m)}</code>`).join(", ");
-      const avail = (data.unmatched_tiles || []).map((t) => `<code>${esc(t.name)}</code>`).join(", ");
-      banners.missing = { cls: "err", html: `<b>Not found on the Tile account:</b> ${names}.${avail ? ` Unassigned Tiles: ${avail}.` : ""}` };
+      const others = data.other_tiles ? ` ${data.other_tiles} other Tile(s) exist on the account; list them with <code>python -m klepto.tiles</code> in the container console.` : "";
+      banners.missing = { cls: "err", html: `<b>Not found on the Tile account:</b> ${names}.${others}` };
     }
     renderBanners();
   }
