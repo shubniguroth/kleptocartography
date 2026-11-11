@@ -185,8 +185,16 @@ class Store:
             return counts
 
     def prune(self, older_than_ts: int) -> int:
+        """Delete history older than the cutoff, but NEVER a tracker's most
+        recent fix: a Tile nobody has passed for months must keep its last
+        known position on the map."""
         with self._lock:
-            cur = self._db.execute("DELETE FROM observations WHERE ts < ?", (older_than_ts,))
+            cur = self._db.execute(
+                """DELETE FROM observations
+                   WHERE ts < ?
+                     AND (uuid, ts) NOT IN (SELECT uuid, MAX(ts) FROM observations GROUP BY uuid)""",
+                (older_than_ts,),
+            )
             self._db.execute("DELETE FROM events WHERE created_at < ?", (older_than_ts,))
             return cur.rowcount
 
