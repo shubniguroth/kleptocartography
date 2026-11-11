@@ -44,7 +44,7 @@ If the package is public, skip this step.
 
 ### 2. Create the stack
 
-**Portainer:** Stacks → Add stack → **Web editor** → paste `docker-compose.yml` → Environment variables → **Load variables from .env file** (a filled-in copy of `stack.env.example`) → Deploy.
+**Portainer:** Stacks → Add stack → **Web editor** → paste `docker-compose.yml` → Environment variables → add them one by one, or **Load variables from .env file** with a filled-in copy of `stack.env.example` → Deploy. The compose file passes each variable explicitly (`TILE_EMAIL: ${TILE_EMAIL:-}` …), so it works in every Portainer environment type. After changing variables, use **Update the stack** so the container is recreated with them.
 
 **Plain Docker:**
 
@@ -147,6 +147,8 @@ KLEPTO_DEMO=1 KLEPTO_DATA_DIR=/tmp/klepto python3 -m klepto
 | Symptom | Fix |
 |---|---|
 | `denied` / `unauthorized` pulling the image | Private package: add the GHCR registry with a `read:packages` token |
+| "TILE_EMAIL / TILE_PASSWORD are not set inside the container" | The variables did not reach the container. Use the repo's `docker-compose.yml` (explicit `environment:`), then **Update the stack**. The log lists which variable names it can see |
+| A password containing `$` fails to log in | Compose treats `$` as a variable; write it as `$$` in the stack variables |
 | Red banner "Not found on the Tile account" | A `TRACKER_n` value doesn't match; the banner and `/api/tiles` list what exists |
 | "Tile polling is failing … InvalidAuthError" | Wrong `TILE_EMAIL` / `TILE_PASSWORD`; Klepto backs off up to 30 min between attempts |
 | Amber "Google Maps unavailable" | Key, billing or referrer issue; the map keeps working on OpenStreetMap |
@@ -160,7 +162,7 @@ Every push to `main` runs `.github/workflows/publish.yml`. The `secret-guard` jo
 
 ```
 .github/workflows/publish.yml   secret guard + multi-arch build → GHCR
-docker-compose.yml              stack (klepto + optional cloudflared, named volume)
+docker-compose.yml              stack (klepto + optional cloudflared, named volume, explicit env)
 stack.env.example               every variable, blank
 Dockerfile, requirements.txt
 app/klepto/__main__.py          wiring + graceful shutdown

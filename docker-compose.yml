@@ -1,48 +1,77 @@
-# Klepto Cartographer stack (Docker standalone / Portainer).
+# Klepto Cartographer stack (Portainer or plain Docker).
 #
-# The image is built by GitHub Actions and published to GHCR on every push to
-# main. Every setting (Tile login, TRACKER_n, keys, tunnel token) comes from
-# environment variables in stack.env.
-#
-# Portainer: Stacks -> Add stack -> Web editor -> paste this file ->
-#            Environment variables -> "Load variables from .env file"
-#            (fill in stack.env.example) -> Deploy.
-#
-# Plain Docker: cp stack.env.example stack.env, edit it, then
-#   docker compose --env-file stack.env up -d
+# Every setting is passed explicitly through `environment:` using ${VAR}
+# substitution, which works in every Portainer environment type (local,
+# agent, edge) and with `docker compose --env-file stack.env up -d`.
+# Set the variables in Portainer's stack "Environment variables" section
+# (or load stack.env.example), then Deploy / Update the stack.
+# Blank values are treated as unset. Need more than 8 trackers? Add
+# TRACKER_9: ${TRACKER_9:-} and so on.
 
 services:
   klepto:
     image: ghcr.io/shubniguroth/kleptocartography:latest
     container_name: klepto
+    pull_policy: always
     restart: unless-stopped
     init: true
-    env_file:
-      - stack.env
     environment:
+      TILE_EMAIL: ${TILE_EMAIL:-}
+      TILE_PASSWORD: ${TILE_PASSWORD:-}
+      TRACKER_1: ${TRACKER_1:-}
+      TRACKER_2: ${TRACKER_2:-}
+      TRACKER_3: ${TRACKER_3:-}
+      TRACKER_4: ${TRACKER_4:-}
+      TRACKER_5: ${TRACKER_5:-}
+      TRACKER_6: ${TRACKER_6:-}
+      TRACKER_7: ${TRACKER_7:-}
+      TRACKER_8: ${TRACKER_8:-}
+      ZONES: ${ZONES:-}
+      TITLE: ${TITLE:-}
+      SUBTITLE: ${SUBTITLE:-}
+      TIMEZONE: ${TIMEZONE:-UTC}
       TZ: ${TZ:-UTC}
+      GOOGLE_MAPS_JS_KEY: ${GOOGLE_MAPS_JS_KEY:-}
+      MAP_DEFAULT_LAYER: ${MAP_DEFAULT_LAYER:-}
+      MAP_CENTER: ${MAP_CENTER:-}
+      MAP_ZOOM: ${MAP_ZOOM:-}
+      GEOCODER: ${GEOCODER:-}
+      GEOCODER_CONTACT: ${GEOCODER_CONTACT:-}
+      GOOGLE_GEOCODING_KEY: ${GOOGLE_GEOCODING_KEY:-}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-}
+      FRESH_MINUTES: ${FRESH_MINUTES:-}
+      STALE_HOURS: ${STALE_HOURS:-}
+      ALERTS_ENABLED: ${ALERTS_ENABLED:-}
+      APPRISE_URLS: ${APPRISE_URLS:-}
+      HEALTHCHECKS_URL: ${HEALTHCHECKS_URL:-}
+      KLEPTO_DEMO: ${KLEPTO_DEMO:-0}
+      KLEPTO_LOG_LEVEL: ${KLEPTO_LOG_LEVEL:-INFO}
     volumes:
       - klepto-data:/data
     ports:
-      # Direct LAN access (http://<docker-host>:8787). Not needed by the tunnel.
       - "${KLEPTO_HOST_PORT:-8787}:8787"
-    networks: [klepto]
+    networks:
+      - klepto
     logging:
       driver: json-file
-      options: { max-size: "5m", max-file: "3" }
+      options:
+        max-size: "5m"
+        max-file: "3"
 
-  # Optional Cloudflare tunnel. Its public hostname points at http://klepto:8787.
-  # Delete this service if you publish the app another way (reverse proxy, VPN...).
+  # Optional Cloudflare tunnel; its public hostname points at http://klepto:8787.
+  # Delete this service if you publish the app another way (it restart-loops
+  # while CLOUDFLARE_TUNNEL_TOKEN is blank).
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: klepto-tunnel
     restart: unless-stopped
-    # http2 instead of QUIC: more robust behind NATs that expire idle UDP flows.
     command: tunnel --no-autoupdate --protocol http2 run
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on: [klepto]
-    networks: [klepto]
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - klepto
+    networks:
+      - klepto
 
 volumes:
   klepto-data:

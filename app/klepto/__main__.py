@@ -26,6 +26,25 @@ from .store import Store
 from .web import WebApp
 
 
+_RELEVANT_PREFIXES = ("TILE_", "TRACKER_", "ZONES", "GOOGLE_", "MAP_", "GEOCODER", "ALERT", "APPRISE", "KLEPTO_")
+
+
+class _MissingCredentials:
+    """Stand-in source when the Tile login is absent: every poll reports a
+    clear, actionable error (shown in the page banner) instead of the
+    container exiting and restarting forever."""
+
+    def __init__(self, seen: list[str]) -> None:
+        self.seen = seen
+
+    async def fetch(self):
+        raise RuntimeError(
+            "TILE_EMAIL / TILE_PASSWORD are not set inside the container "
+            f"(variables it can see: {', '.join(self.seen) or 'none'}). "
+            "Pass them via environment: in the compose file, then Update the stack."
+        )
+
+
 def setup_logging() -> None:
     level = os.environ.get("KLEPTO_LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
@@ -44,9 +63,18 @@ async def main() -> None:
     log = logging.getLogger("klepto")
     s = load_settings()
 
-    if not s.demo and not (s.tile_email and s.tile_password):
-        log.error("TILE_EMAIL and TILE_PASSWORD must be set (or KLEPTO_DEMO=1 to try the UI)")
-        sys.exit(2)
+    missing_creds = not s.demo and not (s.tile_email and s.tile_password)
+    if missing_creds:
+        # Do not crash-loop: keep serving the page, which shows this error in a
+        # banner, and log which relevant variable NAMES did reach the container
+        # (never values) so a mis-wired stack is obvious.
+        seen = sorted(k for k in os.environ if k.startswith(_RELEVANT_PREFIXES))
+        log.error(
+            "TILE_EMAIL and TILE_PASSWORD are not set inside the container. "
+            "Relevant variables it can see: %s. If you set them in Portainer, pass them "
+            "through `environment:` in the compose file and redeploy (Update the stack).",
+            ", ".join(seen) or "none",
+        )
 
     try:
         s.data_dir.mkdir(parents=True, exist_ok=True)
@@ -60,7 +88,12 @@ async def main() -> None:
         sys.exit(2)
     session = ClientSession(timeout=ClientTimeout(total=30), connector=TCPConnector(limit=10))
 
-    source = DemoSource() if s.demo else TileSource(s.tile_email, s.tile_password, session, s.data_dir)
+    if s.demo:
+        source = DemoSource()
+    elif missing_creds:
+        source = _MissingCredentials(sorted(k for k in os.environ if k.startswith(_RELEVANT_PREFIXES)))
+    else:
+        source = TileSource(s.tile_email, s.tile_password, session, s.data_dir)
     geocoder = Geocoder(s, store, session)
     alerter = Alerter(s, store)
     poller = Poller(s, store, source, geocoder, alerter, session)
