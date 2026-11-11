@@ -62,16 +62,31 @@
     streets: "Streets", dark: "Dark", satellite: "Satellite (Esri)", osm: "OpenStreetMap",
   };
 
+  /*
+   * Free basemaps. CARTO's raster tiles now require an API key (keyless
+   * requests return tiles watermarked "API KEY REQUIRED"), so they are only
+   * used when CARTO_API_KEY is configured. Without it, Streets is plain
+   * OpenStreetMap and Dark is the same tiles colour-inverted in CSS.
+   */
   function makeFreeLayers() {
     const osmAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-    free.streets = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-      { subdomains: "abcd", maxZoom: 20, attribution: `${osmAttr} &copy; <a href="https://carto.com/attributions">CARTO</a>` });
-    free.dark = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      { subdomains: "abcd", maxZoom: 20, attribution: `${osmAttr} &copy; <a href="https://carto.com/attributions">CARTO</a>` });
+    const osmUrl = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+    const ck = CFG.map.carto_key;
+    if (ck) {
+      const cartoAttr = `${osmAttr} &copy; <a href="https://carto.com/attributions">CARTO</a>`;
+      const k = encodeURIComponent(ck);
+      free.streets = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${k}`,
+        { subdomains: "abcd", maxZoom: 20, attribution: cartoAttr });
+      free.dark = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${k}`,
+        { subdomains: "abcd", maxZoom: 20, attribution: cartoAttr });
+    } else {
+      free.streets = L.tileLayer(osmUrl, { maxZoom: 19, attribution: osmAttr });
+      free.dark = L.tileLayer(osmUrl, { maxZoom: 19, attribution: osmAttr, className: "k-dark-tiles" });
+    }
     free.satellite = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       { maxZoom: 19, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" });
-    free.osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: osmAttr });
+    free.osm = ck ? L.tileLayer(osmUrl, { maxZoom: 19, attribution: osmAttr }) : free.streets;
   }
 
   function fallbackId() { return isDark() ? "dark" : "streets"; }
@@ -91,7 +106,9 @@
     markerLayer = L.layerGroup().addTo(map);
 
     const bases = {};
-    for (const id of ["streets", "dark", "satellite", "osm"]) bases[LABELS[id]] = free[id];
+    for (const id of CFG.map.carto_key ? ["streets", "dark", "satellite", "osm"] : ["streets", "dark", "satellite"]) {
+      bases[LABELS[id]] = free[id];
+    }
     layerCtl = L.control.layers(bases, { "Zones": zonesLayer, "Accuracy circles": accLayer },
       { position: "topright", collapsed: true }).addTo(map);
 
@@ -110,7 +127,7 @@
 
     map.on("baselayerchange", (e) => {
       const id = Object.keys(LABELS).find((k) => LABELS[k] === e.name);
-      if (id) ls.set("klepto.layer", id);
+      if (id) { try { sessionStorage.setItem("klepto.layer", id); } catch { /* private mode */ } }
     });
     map.on("zoomend", layoutMarkers);
     map.on("contextmenu", (e) => {
@@ -125,7 +142,12 @@
 
   function chooseBasemap() {
     const key = CFG.map.google_maps_js_key;
-    let want = ls.get("klepto.layer") || CFG.map.default_layer;
+    // A layer picked in this tab survives refreshes; a new visit always starts
+    // on the configured default (older versions remembered it forever).
+    try { localStorage.removeItem("klepto.layer"); } catch { /* private mode */ }
+    let want = null;
+    try { want = sessionStorage.getItem("klepto.layer"); } catch { /* private mode */ }
+    want = want || CFG.map.default_layer;
     if (!LABELS[want]) want = CFG.map.default_layer;
     if (want.startsWith("google") && !key) want = fallbackId();
 

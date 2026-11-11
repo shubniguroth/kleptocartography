@@ -99,6 +99,9 @@ class WebApp:
                     # that uses Google Maps). Protect it with an HTTP-referrer
                     # restriction in Google Cloud, not by hiding it.
                     "google_maps_js_key": s.google_maps_js_key or None,
+                    # Optional free CARTO key (carto.com/basemaps/apikey); without
+                    # it the Streets/Dark layers use keyless OpenStreetMap tiles.
+                    "carto_key": s.carto_api_key or None,
                 },
                 "zones": [
                     {"name": z.name, "lat": z.lat, "lon": z.lon, "radius_m": z.radius_m, "home": z.home}

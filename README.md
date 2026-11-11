@@ -91,6 +91,7 @@ Matching by **UUID** survives someone renaming a Tile in the app. Matching by **
 | `TRACKER_n_LABEL` / `_NAME` / `_COLOR` / `_NOTE` | n / Tile's name / palette / blank | Pin text, panel name, colour, note |
 | `ZONES` | none | `Name:lat,lon,radius_m[,away];…`. Zones are home unless `,away` is added. Right-click the map for coordinates |
 | `GOOGLE_MAPS_JS_KEY` | blank (free maps) | Browser key for Google basemaps |
+| `CARTO_API_KEY` | blank | Optional free key for CARTO's Streets/Dark styles; without it those layers use keyless OpenStreetMap tiles (Dark is inverted in the browser) |
 | `MAP_DEFAULT_LAYER` | `google_roadmap` | `google_roadmap`, `google_hybrid`, `streets`, `dark`, `satellite`, `osm` |
 | `MAP_CENTER`, `MAP_ZOOM` | world view | View before the first fix (afterwards the map fits all trackers) |
 | `GEOCODER`, `GOOGLE_GEOCODING_KEY`, `GEOCODER_CONTACT` | `nominatim` | Street addresses: `nominatim`, `google`, `none` |
@@ -131,7 +132,7 @@ Without a key the map uses free OpenStreetMap-based layers. To use Google:
 4. Optionally lower the daily map-load quota and add a budget alert so it can never bill.
 5. Set `GOOGLE_MAPS_JS_KEY`.
 
-If Google ever rejects the key (billing lapsed, wrong referrer), the page switches to OpenStreetMap by itself and shows a banner instead of going dark.
+If Google ever rejects the key (billing lapsed, wrong referrer), the page switches to OpenStreetMap by itself and shows a banner instead of going dark. Klepto pins its own referrer policy in the page, so a proxy that sets `Referrer-Policy: same-origin` cannot break a website-restricted key. A layer picked in the layer menu lasts for that browser tab only; every new visit opens on `MAP_DEFAULT_LAYER`.
 
 ## Alerts
 

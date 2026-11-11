@@ -31,6 +31,8 @@ Environment variables (all optional except the Tile login):
 
   Map and lookups
     GOOGLE_MAPS_JS_KEY, GOOGLE_GEOCODING_KEY
+    CARTO_API_KEY       optional free key for CARTO's Streets/Dark styles
+                        (without it those layers use keyless OpenStreetMap)
     MAP_DEFAULT_LAYER   google_roadmap | google_hybrid | streets | dark | satellite | osm
     MAP_CENTER=lat,lon  MAP_ZOOM   (view before the first fix; afterwards the
                                     map fits all trackers automatically)
@@ -138,6 +140,7 @@ class Settings:
     tile_password: str = ""
     google_maps_js_key: str = ""
     google_geocoding_key: str = ""
+    carto_api_key: str = ""
     apprise_urls: list[str] = field(default_factory=list)
     healthchecks_url: str = ""
     alert_healthchecks_url: str = ""
@@ -269,6 +272,7 @@ def load_settings() -> Settings:
     s.tile_password = os.environ.get("TILE_PASSWORD", "")
     s.google_maps_js_key = _env("GOOGLE_MAPS_JS_KEY") or ""
     s.google_geocoding_key = _env("GOOGLE_GEOCODING_KEY") or ""
+    s.carto_api_key = _env("CARTO_API_KEY") or ""
     s.apprise_urls = _split_urls(os.environ.get("APPRISE_URLS", ""))
     s.healthchecks_url = _env("HEALTHCHECKS_URL") or ""
     s.alert_healthchecks_url = _env("ALERT_HEALTHCHECKS_URL") or ""

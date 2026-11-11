@@ -221,6 +221,9 @@ button { font: inherit; color: inherit; }
 .pop a { display: inline-block; margin-top: 6px; font-weight: 600; }
 .coord { font-family: var(--mono); font-size: 12.5px; user-select: all; }
 
+/* Keyless dark basemap: OpenStreetMap tiles inverted in the browser. */
+.k-dark-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) saturate(70%); }
+
 /* custom map controls */
 .k-ctl a { font: 600 13px/30px var(--font) !important; width: auto !important; padding: 0 10px; }
 
