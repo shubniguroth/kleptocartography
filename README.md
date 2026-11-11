@@ -98,7 +98,9 @@ Matching by **UUID** survives someone renaming a Tile in the app. Matching by **
 | `FRESH_MINUTES`, `STALE_HOURS` | 120, 24 | Fresh / Hours old / Stale thresholds |
 | `ALERTS_ENABLED`, `APPRISE_URLS` | false, blank | Push alerts |
 | `ALERT_ON_LEAVE`, `ALERT_ON_RETURN`, `ALERT_ON_STALE` | true | Which transitions notify |
-| `HEALTHCHECKS_URL` | blank | Pinged after every poll; `/fail` with the error on failures |
+| `HEALTHCHECKS_URL` | blank | Service health: pinged after every poll; `/fail` with the error when polling fails |
+| `ALERT_HEALTHCHECKS_URL` | blank | Tracker status: `/fail` with details while any tracker is away or stale, plain ping when all are fine |
+| `PUBLIC_URL` | blank | Map link appended to alert messages |
 | `CLOUDFLARE_TUNNEL_TOKEN` | blank | For the optional cloudflared service |
 | `TITLE`, `SUBTITLE`, `TIMEZONE`, `TZ` | generic, UTC | Page text; timezone for alert messages |
 | `REFRESH_SECONDS`, `HISTORY_DAYS` | 30, 120 | Browser refresh, history retention |
@@ -130,6 +132,24 @@ Without a key the map uses free OpenStreetMap-based layers. To use Google:
 5. Set `GOOGLE_MAPS_JS_KEY`.
 
 If Google ever rejects the key (billing lapsed, wrong referrer), the page switches to OpenStreetMap by itself and shows a banner instead of going dark.
+
+## Alerts
+
+Every transition is always written to the page's Activity list. To also push notifications, set `ALERTS_ENABLED=true` and one or more [Apprise](https://github.com/caronc/apprise/wiki) URLs in `APPRISE_URLS` (space-separated):
+
+| Destination | `APPRISE_URLS` |
+|---|---|
+| ntfy push | `ntfy://ntfy.sh/<random-topic>` |
+| Gmail (app password) | `mailtos://<user>:<app-password>@gmail.com?to=<recipient>%40example.org` |
+| Custom SMTP (e.g. Amazon SES) | `mailtos://yourdomain.com?smtp=email-smtp.<region>.amazonaws.com&port=587&mode=starttls&user=<smtp-user>&pass=<url-encoded-password>&from=<sender>%40yourdomain.com&to=<recipient>%40example.org` |
+| Pushover | `pover://<user_key>@<app_token>` |
+
+Alerts are edge-triggered: one message on leaving every home zone and one on return, plus one on going stale and one on being heard again. A restart never re-sends them. URL-encode special characters in passwords (`/` → `%2F`, `+` → `%2B`, `@` → `%40`). Set `PUBLIC_URL` to put a map link in every message.
+
+**Healthchecks as an alert channel:** set `ALERT_HEALTHCHECKS_URL` to a dedicated check (period ≈ 2 × poll interval):
+- **While there's a problem:** every poll pings `/fail` with the list of trackers that are away or stale. This includes trackers that are already away when Klepto starts.
+- **Once everything is fine:** it sends a normal ping.
+- **What Healthchecks does with it:** it notifies through its own integrations on each up/down change, and the check also goes down if Klepto stops polling.
 
 ## How accurate is this?
 

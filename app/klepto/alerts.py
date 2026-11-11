@@ -53,9 +53,13 @@ class Alerter:
     def fmt_time(self, ts: int) -> str:
         return datetime.fromtimestamp(ts, timezone.utc).astimezone(self.tz).strftime("%a %b %-d, %-I:%M %p")
 
-    async def evaluate(self, uuid: str, label: str, latest: dict | None, now: int) -> None:
+    async def evaluate(self, uuid: str, label: str, latest: dict | None, now: int) -> list[str]:
+        """Run the edge-triggered alerts for one tracker and return the
+        conditions that are active RIGHT NOW (level, not edge), used for the
+        ALERT_HEALTHCHECKS_URL status ping."""
+        active: list[str] = []
         if latest is None:
-            return
+            return active
         home_zones = [z for z in self.s.zones if z.home]
 
         # ---- away / back -------------------------------------------------
@@ -64,10 +68,13 @@ class Alerter:
             where = latest["address"] or f"{latest['lat']:.5f}, {latest['lon']:.5f}"
             if latest["zone"]:
                 where = f"{latest['zone']} ({where})" if latest["address"] else latest["zone"]
+            away_msg = (f"{label} left all home zones: last seen near {where} at "
+                        f"{self.fmt_time(latest['ts'])} (±{int(latest['accuracy'] or 0)} m)")
+            if away:
+                active.append(away_msg)
             await self._edge(
                 uuid, "away", away, now,
-                on_msg=(f"{label} left all home zones: last seen near {where} at "
-                        f"{self.fmt_time(latest['ts'])} (±{int(latest['accuracy'] or 0)} m)"),
+                on_msg=away_msg,
                 off_msg=f"{label} is back at {latest['zone']} ({self.fmt_time(latest['ts'])})",
                 notify_on=self.s.alert_on_leave,
                 notify_off=self.s.alert_on_return,
@@ -77,14 +84,18 @@ class Alerter:
         age_h = (now - latest["ts"]) / 3600
         stale = age_h > self.s.stale_hours
         place = latest["zone"] or latest["address"] or "unknown location"
+        stale_msg = (f"{label} has not been heard by any phone for {int(age_h)} h. "
+                     f"Last seen at {place}, {self.fmt_time(latest['ts'])}")
+        if stale:
+            active.append(stale_msg)
         await self._edge(
             uuid, "stale", stale, now,
-            on_msg=(f"{label} has not been heard by any phone for {int(age_h)} h. "
-                    f"Last seen at {place}, {self.fmt_time(latest['ts'])}"),
+            on_msg=stale_msg,
             off_msg=f"{label} was heard again at {place} ({self.fmt_time(latest['ts'])})",
             notify_on=self.s.alert_on_stale,
             notify_off=self.s.alert_on_stale,
         )
+        return active
 
     async def _edge(
         self, uuid: str, kind: str, active: bool, now: int, *,
@@ -108,6 +119,8 @@ class Alerter:
     async def send(self, title: str, body: str, event_id: int | None = None) -> bool:
         if not self._apprise:
             return False
+        if self.s.public_url:
+            body = f"{body}\n\nMap: {self.s.public_url}"
         try:
             ok = await asyncio.to_thread(self._apprise.notify, title=title, body=body)
         except Exception as err:

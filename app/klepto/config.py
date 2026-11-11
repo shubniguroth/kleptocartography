@@ -43,7 +43,11 @@ Environment variables (all optional except the Tile login):
 
   Alerts and monitoring
     ALERTS_ENABLED (false), ALERT_ON_LEAVE, ALERT_ON_RETURN, ALERT_ON_STALE (true)
-    APPRISE_URLS (space/comma separated), HEALTHCHECKS_URL
+    APPRISE_URLS (space/comma separated)
+    HEALTHCHECKS_URL         service health: pinged after every poll, /fail when polling fails
+    ALERT_HEALTHCHECKS_URL   tracker status: pinged every poll, /fail (with details) while any
+                             tracker is away or stale, plain ping once all are fine again
+    PUBLIC_URL               link to the map, appended to alert messages
 
   Runtime
     KLEPTO_DEMO, KLEPTO_LOG_LEVEL, KLEPTO_PORT, KLEPTO_DATA_DIR, KLEPTO_CONFIG
@@ -136,6 +140,8 @@ class Settings:
     google_geocoding_key: str = ""
     apprise_urls: list[str] = field(default_factory=list)
     healthchecks_url: str = ""
+    alert_healthchecks_url: str = ""
+    public_url: str = ""
     demo: bool = False
     data_dir: Path = Path("/data")
     port: int = 8787
@@ -265,6 +271,8 @@ def load_settings() -> Settings:
     s.google_geocoding_key = _env("GOOGLE_GEOCODING_KEY") or ""
     s.apprise_urls = _split_urls(os.environ.get("APPRISE_URLS", ""))
     s.healthchecks_url = _env("HEALTHCHECKS_URL") or ""
+    s.alert_healthchecks_url = _env("ALERT_HEALTHCHECKS_URL") or ""
+    s.public_url = (_env("PUBLIC_URL") or "").rstrip("/")
 
     # ---- optional TOML file ----
     if s.config_path.exists():

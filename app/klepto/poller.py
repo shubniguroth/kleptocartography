@@ -132,6 +132,7 @@ class Poller:
     async def _process(self, tiles: list[dict[str, Any]], now: int) -> None:
         seen_trackers: set[str] = set()
         other_tiles = 0
+        problems: list[str] = []
 
         for t in tiles:
             h = self.match(t)
@@ -172,7 +173,7 @@ class Poller:
                         label, lat, lon, obs["accuracy"], obs["zone"], now - obs["ts"],
                     )
             latest = self.store.latest(t["uuid"])
-            await self.alerter.evaluate(t["uuid"], label, dict(latest) if latest else None, now)
+            problems += await self.alerter.evaluate(t["uuid"], label, dict(latest) if latest else None, now)
 
         missing = [h.match for h in self.s.trackers if h.match.lower() not in seen_trackers]
         if missing:
@@ -183,6 +184,26 @@ class Poller:
         self.status["other_tiles"] = other_tiles
         self.status.pop("unmatched_tiles", None)
         self.status["missing_trackers"] = missing
+        self.status["active_problems"] = problems
+        await self._ping_alert_check(problems)
+
+    async def _ping_alert_check(self, problems: list[str]) -> None:
+        """Tracker-status check for Healthchecks: /fail with the details while
+        anything is away or stale, a plain success ping when all is well.
+        Healthchecks notifies on the up/down transitions, and the check also
+        goes down by itself if Klepto stops polling."""
+        url = self.s.alert_healthchecks_url
+        if not url:
+            return
+        body = "\n".join(problems) if problems else "All trackers home and recently heard."
+        target = url.rstrip("/") + "/fail" if problems else url
+        try:
+            async with self.session.post(
+                target, data=body.encode()[:10000], timeout=ClientTimeout(total=10)
+            ):
+                pass
+        except Exception as err:
+            log.warning("Alert Healthchecks ping failed: %s", err)
 
     async def _ping_healthchecks(self, ok: bool, body: str = "") -> None:
         """Optional dead-man's switch for the self-hosted Healthchecks instance."""
