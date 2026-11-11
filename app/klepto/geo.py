@@ -73,15 +73,23 @@ class Geocoder:
         cached = self.store.geocache_get(key, GEOCACHE_TTL_S)
         if cached is not False:
             return cached  # may be None (cached "no address")
+        provider = self.s.geocoder
         try:
-            if self.s.geocoder == "google":
-                addr = await self._google(lat, lon)
+            if provider == "google":
+                try:
+                    addr = await self._google(lat, lon)
+                except Exception as err:
+                    # Denied/over-quota/restricted key: degrade to the free
+                    # geocoder instead of losing addresses.
+                    log.warning("Google geocoding failed (%s); falling back to Nominatim", err)
+                    provider = "nominatim"
+                    addr = await self._nominatim(lat, lon)
             else:
                 addr = await self._nominatim(lat, lon)
         except Exception as err:  # never let geocoding break a poll
             log.warning("Reverse geocode failed for %s: %s", key, err)
             return None
-        self.store.geocache_put(key, addr, self.s.geocoder)
+        self.store.geocache_put(key, addr, provider)
         return addr
 
     async def _nominatim(self, lat: float, lon: float) -> str | None:
